@@ -1,0 +1,169 @@
+// Databricks notebook source
+// MAGIC %fs ls dbfs:/FileStore/tables/flight
+
+// COMMAND ----------
+
+// MAGIC %fs ls dbfs:/FileStore/tables
+// MAGIC
+// MAGIC
+
+// COMMAND ----------
+
+// MAGIC %fs head dbfs:/FileStore/tables/2010_summary-1.csv
+
+// COMMAND ----------
+
+val flightDF= spark.read.option("header","true")
+                        .csv("/FileStore/tables/flight/flight_data.csv");
+display(flightDF)
+
+
+// COMMAND ----------
+
+flightDF.count
+val FLT_DEP_1DF=  flightDF.filter($"FLT_DEP_1" === 1 && $"MONTH_MON" === "JAN");
+display(FLT_DEP_1DF)
+
+// COMMAND ----------
+
+flightDF.columns
+//flightDF.columns.size
+
+// COMMAND ----------
+
+val coldf=flightDF.select("Year","APT_NAME")
+coldf.show
+
+// COMMAND ----------
+
+import org.apache.spark.sql.functions.{col,column};
+
+val coldf=flightDF.select($"Year",col("APT_NAME"),column("MONTH_MON"),'DLY_ATC_PRE_3)
+coldf.show
+
+// COMMAND ----------
+
+flightDF.schema
+
+// COMMAND ----------
+
+flightDF.printSchema
+
+// COMMAND ----------
+
+val flightDataFrame= spark.read.option("header","true")
+                        .csv("/FileStore/tables/flight/flight_data.csv");
+flightDataFrame.printSchema
+
+// COMMAND ----------
+
+// use inferschema so that Spark can identify the schema in the csv file
+val flightDataFrame= spark.read.option("header","true").option("inferSchema","true")
+                        .csv("/FileStore/tables/flight/flight_data.csv");
+flightDataFrame.printSchema
+
+// COMMAND ----------
+
+display(flightDataFrame)
+
+// COMMAND ----------
+
+flightDataFrame.schema
+
+// COMMAND ----------
+
+flightDataFrame.schema.toDDL
+
+// COMMAND ----------
+
+// Adding a Schema to a Data Frame
+val flightSchemaDDL="YEAR INT,MONTH_NUM INT,MONTH_MON STRING,FLT_DATE STRING,APT_ICAO STRING,APT_NAME STRING,STATE_NAME STRING,FLT_DEP_1 INT,FLT_DEP_IFR_2 INT,DLY_ATC_PRE_2 INT,FLT_DEP_3 INT,DLY_ATC_PRE_3 INT"
+// remove inferschema
+val flightDataFrame= spark.read.option("header","true").schema(flightSchemaDDL)
+                        .csv("/FileStore/tables/flight/flight_data.csv");
+flightDataFrame.printSchema
+
+
+// COMMAND ----------
+
+// Adding a column in Data Frame
+//flightDataFrame.show
+import org.apache.spark.sql.functions.lit
+
+val myFlightDF=flightDataFrame.select("YEAR","MONTH_MON","FLT_DEP_1")
+val updatedDF= myFlightDF.withColumn("MoreThanSevenCol",myFlightDF.col("FLT_DEP_1")>7)
+                         .withColumn("MoreThan100Col",myFlightDF.col("FLT_DEP_1")>100)
+                         .withColumn("demoColumn",lit(1))
+                         .withColumnRenamed("FLT_DEP_1", "Flight Depature")
+ updatedDF.show
+
+// COMMAND ----------
+
+// Drop column from Data frame
+val droppedDF=updatedDF.drop("demoColumn","MoreThanSevenCol")
+droppedDF.show
+
+// COMMAND ----------
+
+// Use Filter & Where , they both work same
+
+val filteredDF=flightDataFrame.filter($"FLT_DEP_IFR_2" >= 174)
+                              .filter('FLT_DEP_IFR_2 =!= 401)
+                              .where('FLT_DEP_IFR_2.isNotNull)
+filteredDF.show
+
+// COMMAND ----------
+
+// Joins
+val flightDF= spark.read.option("header","true").option("inferSchema","true")
+                        .csv("/FileStore/tables/flight/flight_data.csv");
+
+val countryDF= spark.read.option("header",true)
+                          .option("inferSchema",true)
+                          .csv("/FileStore/tables/flight/country_zone.csv")
+
+val joinExpression= flightDF.col("STATE_NAME") === countryDF.col("STATE_NAME")
+display(countryDF)
+//display(flightDF)
+
+// COMMAND ----------
+
+val innerJoinDF=flightDF.join(countryDF,joinExpression,"inner")
+.select("MONTH_NUM","Country","Zone of Country")
+display(innerJoinDF)
+
+// COMMAND ----------
+
+//count
+flightDF.count()
+import org.apache.spark.sql.functions.count
+flightDF.select((count("*"))).show
+flightDF.select((count("FLT_DEP_IFR_2"))).show
+flightDF.filter(($"FLT_DEP_IFR_2").isNull).count
+
+// COMMAND ----------
+
+flightDF.select("STATE_NAME").count
+import org.apache.spark.sql.functions.countDistinct
+flightDF.select(countDistinct($"STATE_NAME")).show
+
+// COMMAND ----------
+
+val summaryDF=spark.read.format("csv")
+                        .options(Map("header" -> "true","inferSchema" -> "true"))
+                        .load("/FileStore/tables/2010_summary-1.csv")
+                        .withColumnRenamed("count", "Total of the flights")
+
+display(summaryDF)                     
+
+// COMMAND ----------
+
+import org.apache.spark.sql.functions.{min,max,countDistinct,count}
+
+summaryDF.select(countDistinct($"Total of the flights")).show
+summaryDF.select(count($"Total of the flights")).show
+summaryDF.select(min($"Total of the flights")).withColumnRenamed("min(Total of the flights)","Minimum Count Value").show 
+ summaryDF.select(max($"Total of the flights")).show
+
+// COMMAND ----------
+
